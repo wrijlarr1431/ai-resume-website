@@ -1,0 +1,102 @@
+name: AI Resume CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  BUCKET_NAME: larry-resume-website-2024   # ← Replace this
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  MODEL_ID: anthropic.claude-3-haiku-20240307-v1:0
+  STACK_NAME: ai-resume-stack
+
+jobs:
+  beta-deploy:
+    name: Beta Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install boto3
+
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file cloudformation/stack.yaml \
+            --stack-name ${{ env.STACK_NAME }} \
+            --parameter-overrides BucketName=${{ env.BUCKET_NAME }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Run resume pipeline (beta)
+        env:
+          BUCKET_NAME: ${{ env.BUCKET_NAME }}
+          ENVIRONMENT: beta
+          COMMIT_SHA: ${{ github.sha }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          MODEL_ID: ${{ env.MODEL_ID }}
+        run: python scripts/process_resume.py
+
+      - name: Print beta URL
+        run: |
+          echo "✅ Beta URL:"
+          echo "http://${{ env.BUCKET_NAME }}.s3-website-${{ secrets.AWS_REGION }}.amazonaws.com/beta/index.html"
+
+  prod-deploy:
+    name: Prod Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install boto3
+
+      - name: Set up AWS credentials (prod)
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file cloudformation/stack.yaml \
+            --stack-name ${{ env.STACK_NAME }} \
+            --parameter-overrides BucketName=${{ env.BUCKET_NAME }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Run resume pipeline (prod)
+        env:
+          BUCKET_NAME: ${{ env.BUCKET_NAME }}
+          ENVIRONMENT: prod
+          COMMIT_SHA: ${{ github.sha }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          MODEL_ID: ${{ env.MODEL_ID }}
+        run: python scripts/process_resume.py
+
+      - name: Print prod URL
+        run: |
+          echo "✅ Prod URL:"
+          echo "http://${{ env.BUCKET_NAME }}.s3-website-${{ secrets.AWS_REGION }}.amazonaws.com/prod/index.html"
