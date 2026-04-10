@@ -9,7 +9,7 @@ on:
 env:
   BUCKET_NAME: larry-resume-website-2024
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  MODEL_ID: anthropic.claude-sonnet-4-20250514-v1:0
+  MODEL_ID: us.anthropic.claude-sonnet-4-20250514-v1:0
   STACK_NAME: ai-resume-stack
 
 jobs:
