@@ -9,7 +9,7 @@ on:
 env:
   BUCKET_NAME: larry-resume-website-2024   # ← Replace this
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  MODEL_ID: us.anthropic.claude-3-5-haiku-20241022-v1:0
+  MODEL_ID: us.anthropic.claude-3-7-sonnet-20250219-v1:0
   STACK_NAME: ai-resume-stack
 
 jobs:
